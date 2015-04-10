@@ -1,0 +1,32 @@
+
+[package]
+name = "storage"
+version = "0.0.1"
+authors = []
+
+
+[lib]
+name="storage"
+path="src/lib.rs"
+
+#handle features
+
+[dependencies]
+rust-crypto = "*" #hash algorithm, crypto
+
+#lz4 = "1.3.127" for lz4 compression optional
+#rocksdb backend feature
+
+#msgpack library (for filesystem?)
+
+
+[dependencies.msgpackio]
+path = "../msgpackio/"
+
+[dependencies.argparse]
+git="https://github.com/tailhook/rust-argparse"
+
+
+[[bin]]
+name="fs_store_test"
+path="bin/fs_store_test.rs"
