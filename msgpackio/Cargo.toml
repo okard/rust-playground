@@ -1,0 +1,17 @@
+[package]
+
+name = "msgpackio"
+version = "0.0.1"
+authors = []
+
+[lib]
+name="msgpackio"
+path="src/lib.rs"
+
+[[bin]]
+name="msgpack_iter"
+path="src/main.rs"
+
+
+[dependencies]
+byteorder = "*"
