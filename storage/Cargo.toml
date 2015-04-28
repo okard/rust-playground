@@ -17,7 +17,7 @@ rust-crypto = "*" #hash algorithm, crypto
 #lz4 = "1.3.127" for lz4 compression optional
 #rocksdb backend feature
 
-linenoise-rust = "*"
+linenoise-rust = "*" # for bin tools
 
 [dependencies.msgpackio] # for filesystem backend
 path = "../msgpackio/"

@@ -7,8 +7,8 @@ use std::io::{Result, Read, Write};
 //enum EntryFlags { ReadOnly, Deleteable, }
 //set_flags api
 
-// struct ReadHandle(&mut Read, size: usize);
-// struct WriteHandle(&mut Write, size: Option<usize>);
+// struct ReadHandle<'a>(&'a mut Read, size: Option<usize>);
+// struct WriteHandle<'a>(&'a mut Write, size: Option<usize>);
 
 /**
 * The absolute minimum interface for a key-value-storage

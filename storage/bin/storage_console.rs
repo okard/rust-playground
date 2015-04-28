@@ -30,7 +30,7 @@ use argparse::{ArgumentParser, Store};
 extern crate storage;
 use storage::{KeyValueStorage, FilesystemStorage};
 
-use std::io::{Read, Cursor, ErrorKind, Error, Result};
+use std::io::{Read, Cursor}; //ErrorKind, Error, Result
 use std::fs::File;
 
 struct ReadHandle<'a>
@@ -87,7 +87,10 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 		ap.refer(&mut command).add_argument("command", Store, "Command (get, put, delete)");
 		ap.refer(&mut key).add_argument("key", Store, "Key of Value");
 		ap.refer(&mut value).add_argument("value", Store, "Value Data");
-		ap.parse(args, &mut stdout, &mut stderr);
+		let r = ap.parse(args, &mut stdout, &mut stderr);
+		if r.is_err() {
+				println!("{}", r.err().unwrap());
+		}
 	}
 	
 	//handle commands

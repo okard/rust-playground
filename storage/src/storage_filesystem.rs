@@ -2,7 +2,7 @@
 //filesystem storage 
 extern crate msgpackio;
 
-use std::io::{self, Result, Read, Write, Seek, Error, ErrorKind};
+use std::io::{self, Result, Read, Write, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::fs::{self, File, PathExt};
 use std::env;
@@ -13,6 +13,35 @@ use crypto::blake2b::{Blake2b};
 use self::msgpackio::{MsgPackReader, MsgPackWriter};
 
 use super::core::{KeyValueStorage};
+
+//copy with length limiting
+pub fn copy<R: Read, W: Write>(r: &mut R, w: &mut W, len_max: u64) -> io::Result<u64> {
+	let mut buf = [0; 1024];
+	let mut written : u64 = 0;
+	
+	while written < len_max {
+		let len = match r.read(&mut buf) {
+			Ok(0) => return Ok(written),
+			Ok(len) => len,
+			Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+			Err(e) => return Err(e),
+		};
+		
+		if (written+len as u64) < len_max {
+			try!(w.write_all(&buf[..len]));
+			written += len as u64;
+		}
+		else {
+			let to_write : usize = len_max as usize - written as usize;
+			let to_write = if to_write > len {len} else {to_write}; //required?
+			try!(w.write_all(&buf[..to_write]));
+			written += to_write as u64;
+		}
+	}
+	Ok(written)
+}
+
+
 
 //put in seperate folder
 
@@ -106,20 +135,20 @@ impl KeyValueStorage for FilesystemStorage
 		}
 		else { return Err(Error::new(ErrorKind::Other, "storage file has the wrong type at version pos")); }
 		
-		
-		//key / compare?
-		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
-			try!(file.seek(io::SeekFrom::Current(x as i64))); //skip key
-		}
-		else { return Err(Error::new(ErrorKind::Other, "wrong entry at key position")); }
-		
 		//value
 		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
 			let mut vw = value_out;
-			try!(io::copy(&mut file, &mut vw)); //copy only x bytes to value
+			try!(copy(&mut file, &mut vw, x as u64)); //copy only x bytes to value
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
+		//key 
+		/*
+		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
+			try!(file.seek(io::SeekFrom::Current(x as i64))); //read or skip
+		}
+		else { return Err(Error::new(ErrorKind::Other, "wrong entry at key position")); }
+		*/
 		
 		Ok(())
 	}
@@ -171,11 +200,12 @@ impl KeyValueStorage for FilesystemStorage
 		
 		try!(file.write_msgpack_pos_fixint(1)); //version
 		//flags?
-		try!(file.write_msgpack_bin(key_buf.as_slice()));	//key
-		try!(file.write_msgpack_bin_header(value_size));	//header
+		try!(file.write_msgpack_bin_header(value_size));	//value bin header
 		let mut vr = value_reader;
-		let bytes_written = try!(io::copy(&mut vr, &mut file));
+		let bytes_written = try!(copy(&mut vr, &mut file, value_size as u64)); //limit to given value bytes
 		assert_eq!(bytes_written as usize, value_size);
+		
+		try!(file.write_msgpack_bin(key_buf.as_slice()));	//key complete
 		
 		Ok(())
 	}
