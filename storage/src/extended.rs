@@ -6,6 +6,8 @@ use std::io::{Result, Read};
 pub trait ExtendedStorage : KeyValueStorage
 {
 	//put only value and get generated key
+	//support Content-addressable storage(CAS)/associative storage
+	//-> readonly flag
 	
 	//verify data (check)
 	fn verify(&self, k: &mut Read) -> Result<bool>;

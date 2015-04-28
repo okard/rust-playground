@@ -17,16 +17,19 @@ rust-crypto = "*" #hash algorithm, crypto
 #lz4 = "1.3.127" for lz4 compression optional
 #rocksdb backend feature
 
-#msgpack library (for filesystem?)
+linenoise-rust = "*"
 
-
-[dependencies.msgpackio]
+[dependencies.msgpackio] # for filesystem backend
 path = "../msgpackio/"
 
-[dependencies.argparse]
+[dependencies.argparse] # for bin tools
 git="https://github.com/tailhook/rust-argparse"
 
 
 [[bin]]
 name="fs_store_test"
 path="bin/fs_store_test.rs"
+
+[[bin]]
+name="storage_console"
+path="bin/storage_console.rs"

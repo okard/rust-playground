@@ -1,8 +1,14 @@
 
 use std::io::{Result, Read, Write};
 
+//define own result with own error
 
 //options/flags like readonly?
+//enum EntryFlags { ReadOnly, Deleteable, }
+//set_flags api
+
+// struct ReadHandle(&mut Read, size: usize);
+// struct WriteHandle(&mut Write, size: Option<usize>);
 
 /**
 * The absolute minimum interface for a key-value-storage

@@ -14,14 +14,22 @@ use self::msgpackio::{MsgPackReader, MsgPackWriter};
 
 use super::core::{KeyValueStorage};
 
+//put in seperate folder
+
+/*struct KeyInfo
+{
+	//key data
+	//hash_hex_string
+	//hash_bin_data
+	
+	//from key_reader : &mut Read, key_size: usize
+}*/
 
 pub struct FilesystemStorage
 {
-	
 	//path of storage has to exist
 	repo_path: PathBuf
 }
-
 
 impl FilesystemStorage
 {	
