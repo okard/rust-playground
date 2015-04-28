@@ -15,10 +15,11 @@ The key value will be hashed with Blake2b 32 byte
 
 git-like objects folder 
 
-Hexadecimal path in the format:
-	xx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	Hexadecimal path in the format:
+	`xx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+	
 	Example:
-	92/8b20366943e2afd11ebc0eae2e53a93bf177a4fcf35bcc64d503704e65e202
+	`92/8b20366943e2afd11ebc0eae2e53a93bf177a4fcf35bcc64d503704e65e202`
 
 ## File format 
 
