@@ -25,7 +25,11 @@ Commands:
 #![feature(box_syntax)]
 extern crate linenoise;
 extern crate argparse;
+extern crate rustc_serialize;
 use argparse::{ArgumentParser, Store};
+
+use rustc_serialize::base64::{FromBase64};
+use rustc_serialize::hex::{FromHex};
 
 extern crate storage;
 use storage::{KeyValueStorage, FilesystemStorage};
@@ -42,7 +46,11 @@ struct ReadHandle<'a>
 fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'a>>
 {
 	if input.starts_with("hex:") {
-		panic!();
+		let data = Box::new(Cursor::new(input[4..].from_hex().unwrap()));
+		ReadHandle {
+			reader: data,
+			size: input[4..].len()/2
+		}
 	}
 	else if input.starts_with("file:") {
 		let file = Box::new(File::open(&input[5..]).unwrap());
@@ -53,8 +61,14 @@ fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'
 		}
 	}
 	else if input.starts_with("base64:") {
-		panic!();
+		let data = Box::new(Cursor::new(input[7..].from_base64().unwrap()));
+		let len = data.get_ref().len();
+		ReadHandle {
+			reader: data,
+			size: len
+		}
 	}
+	//TODO base64url
 	else {
 		ReadHandle {
 			reader: Box::new(Cursor::new(input.as_bytes())) as Box<Read>,
@@ -62,8 +76,6 @@ fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'
 		}
 	}
 }
-
-
 
 //handle line
 fn handle_line(storage: &mut KeyValueStorage, line: &str)
@@ -115,6 +127,10 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 				println!("{}", r.err().unwrap());
 			}
 		}
+		//TODO delete command
+		//TODO meta command
+		//TODO set_flags command
+		//TODO do_file command
 		_ => { println!("Wrong command: {}", command.as_str()); }
 	}
 }
@@ -128,6 +144,7 @@ fn main()
 		ap.set_description("Storage Console");
 		ap.refer(&mut repo_type).add_argument("repo_type", Store, "Repository Type");
 		ap.refer(&mut repo_path).add_argument("repo_path", Store, "Repository Path");
+		//TODO support --dofile here?
 		ap.parse_args_or_exit();
 	}
 	

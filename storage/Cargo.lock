@@ -6,6 +6,7 @@ dependencies = [
  "linenoise-rust 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "msgpackio 0.0.1",
  "rust-crypto 0.2.31 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
