@@ -43,6 +43,15 @@ struct ReadHandle<'a>
 	size: usize
 }
 
+impl<'a> ReadHandle<'a>
+{
+	fn to_handle(&mut self) -> storage::ReadHandle 
+	{
+		storage::ReadHandle::new_with_len(&mut self.reader, self.size)
+	}
+	
+}
+
 fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'a>>
 {
 	if input.starts_with("hex:") {
@@ -112,7 +121,8 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 			//macro? create read + size from value or key looking at prefixed values
 			
 			let mut key_handle = create_readhandle(&key);
-			let r = storage.get(&mut key_handle.reader, key_handle.size, &mut stdout);
+			let mut out_handle = storage::WriteHandle::new(&mut stdout);
+			let r = storage.get(&mut key_handle.to_handle(), &mut out_handle);
 			if r.is_err() {
 				println!("{}", r.err().unwrap());
 			}
@@ -122,7 +132,7 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 			let mut key_handle = create_readhandle(&key);
 			let mut value_handle =  create_readhandle(&value);
 				
-			let r = storage.put(&mut key_handle.reader, key_handle.size, &mut value_handle.reader, value_handle.size);
+			let r = storage.put(&mut key_handle.to_handle(), &mut value_handle.to_handle());
 			if r.is_err() {
 				println!("{}", r.err().unwrap());
 			}

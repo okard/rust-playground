@@ -2,6 +2,8 @@
 //filesystem storage 
 extern crate msgpackio;
 
+
+
 use std::io::{self, Result, Read, Write, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::fs::{self, File, PathExt};
@@ -12,7 +14,7 @@ use crypto::blake2b::{Blake2b};
 
 use self::msgpackio::{MsgPackReader, MsgPackWriter};
 
-use super::core::{KeyValueStorage};
+use super::core::{ReadHandle, WriteHandle, KeyValueStorage};
 
 //copy with length limiting
 pub fn copy<R: Read, W: Write>(r: &mut R, w: &mut W, len_max: u64) -> io::Result<u64> {
@@ -42,6 +44,59 @@ pub fn copy<R: Read, W: Write>(r: &mut R, w: &mut W, len_max: u64) -> io::Result
 }
 
 
+bitflags! {
+	flags Flags: u32 {
+		const FLAG_READONLY 	= 0b00000001,
+		const FLAG_DELETEABLE 	= 0b00000010,
+		const FLAG_ENCRYPTED	= 0b00000100,
+		const FLAG_COMPRESSED	= 0b00001000,
+	}
+}
+
+
+
+struct KeyInfo
+{
+	key_buf: Vec<u8>, //complete key in memory
+	key_hash: Vec<u8>, //key hash
+	data_file_path: PathBuf, //data file path
+}
+
+impl KeyInfo
+{
+	fn new(fsstorage: &FilesystemStorage, key_handle: &mut ReadHandle) -> Result<KeyInfo> 
+	{
+		const KEY_SIZE : usize = 32;
+		
+		let key_length = key_handle.len.unwrap();
+		
+		//read key complete
+		let mut key_buf : Vec<u8> = Vec::with_capacity(key_length);
+		try!(key_handle.reader.read_to_end(&mut key_buf));
+		let key_buf = key_buf;
+		assert!(key_buf.len() == key_length);
+		
+		//create hash from key
+		let mut blake2b : &mut Digest = &mut Blake2b::new(KEY_SIZE); //32 or 64?
+		blake2b.input(&key_buf);
+		let mut key_hash : Vec<u8> = Vec::with_capacity(KEY_SIZE);
+		blake2b.result(&mut key_hash);
+		
+		//get hex representation:
+		let key_hash_str = blake2b.result_str();
+		
+		//build up path
+		let mut path = PathBuf::from(&fsstorage.repo_path);
+		path.push(&key_hash_str[0..2]);
+		path.push(&key_hash_str[2..]);
+		
+		Ok(KeyInfo {
+			key_buf: key_buf,
+			key_hash: key_hash,
+			data_file_path: path
+		})
+	}
+}
 
 //put in seperate folder
 
@@ -98,34 +153,22 @@ impl KeyValueStorage for FilesystemStorage
 	
 	
 	//get a value from repository by key, data is written to writer
-	fn get(&self, key_reader : &mut Read, key_size: usize, value_out: &mut Write) -> Result<()>
+	fn get(&self, key_handle: &mut ReadHandle, output_handle: &mut WriteHandle) -> Result<()>
 	{
-		const KEY_SIZE : usize = 32;
+		let mut key_handle = key_handle;
+		let mut output_handle = output_handle;
+		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
 		
-		//read key complete
-		let mut key_buf : Vec<u8> = Vec::with_capacity(key_size);
-		try!(key_reader.read_to_end(&mut key_buf));
-		
-		//compute hash from key
-		let mut blake2b : &mut Digest = &mut Blake2b::new(KEY_SIZE);
-		blake2b.input(&key_buf);
-		let key_hash = blake2b.result_str();
-		
-		//build up path
-		let mut path = PathBuf::from(&self.repo_path);
-		path.push(&key_hash[0..2]);
-		path.push(&key_hash[2..]);
-		
-		println!("key-hash: {}", key_hash);
-		println!("path: {}", path.display());
+		println!("key-hash: {:?}", key_info.key_hash);
+		println!("path: {}", key_info.data_file_path.display());
 		
 		//check if file exists
-		if !path.exists() {
+		if !key_info.data_file_path.exists() {
 			return Err(Error::new(ErrorKind::Other, "key does not exist"));
 		}
 		
 		//open file
-		let mut file = try!(File::open(path));
+		let mut file = try!(File::open(key_info.data_file_path));
 		
 		//version
 		if let msgpackio::Value::UInt8(x) = file.read_value().unwrap() {
@@ -137,8 +180,7 @@ impl KeyValueStorage for FilesystemStorage
 		
 		//value
 		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
-			let mut vw = value_out;
-			try!(copy(&mut file, &mut vw, x as u64)); //copy only x bytes to value
+			try!(copy(&mut file, &mut output_handle.writer, x as u64)); //copy only x bytes to value
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
@@ -154,67 +196,48 @@ impl KeyValueStorage for FilesystemStorage
 	}
 	
 	//put a value into repository from reader, key is given by result
-	fn put(&mut self, key_reader : &mut Read, key_size: usize, value_reader: &mut Read, value_size: usize) -> Result<()>
+	fn put(&mut self, key_handle: &mut ReadHandle, value_handle: &mut ReadHandle) -> Result<()>
 	{
-		const KEY_SIZE : usize = 32;
+		let mut key_handle = key_handle;
+		let mut value_handle = value_handle;
+		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
 		
-		//read key complete
-		let mut key_buf : Vec<u8> = Vec::with_capacity(key_size);
-		try!(key_reader.read_to_end(&mut key_buf));
-		let key_buf = key_buf;
-		assert!(key_buf.len() == key_size);
+		assert!(key_info.data_file_path.is_absolute());
 		
-		//create hash from key
-		let mut blake2b : &mut Digest = &mut Blake2b::new(KEY_SIZE); //32 or 64?
-		blake2b.input(&key_buf);
-		let mut key_hash = [0u8; KEY_SIZE];
-		blake2b.result(&mut key_hash);
-		
-		//get hex representation:
-		let key_hash_str = blake2b.result_str();
-		
-		//build up path
-		let mut path = PathBuf::from(&self.repo_path);
-		path.push(&key_hash_str[0..2]);
-		path.push(&key_hash_str[2..]);
-		
-		assert!(path.is_absolute());
-		
-		println!("key-hash: {}", key_hash_str);
-		println!("path: {}", path.display());
+		println!("key-hash: {:?}", key_info.key_hash);
+		println!("path: {}", key_info.data_file_path.display());
 		
 		//check for exist and read only flag
-		if path.exists() {
+		if key_info.data_file_path.exists() {
 			//if read only error
 			//else go to overwrite value
 			println!("file already exists going to overwrite"); //debug info
 		}
 		
 		//create dir if it not exists
-		if !path.as_path().parent().unwrap().is_dir() {
-			try!(fs::create_dir_all(path.as_path().parent().unwrap()));
+		if !key_info.data_file_path.as_path().parent().unwrap().is_dir() {
+			try!(fs::create_dir_all(key_info.data_file_path.as_path().parent().unwrap()));
 		}
 		
 		//write new file
-		let mut file = try!(File::create(path.as_path()));
+		let mut file = try!(File::create(key_info.data_file_path.as_path()));
 		
 		try!(file.write_msgpack_pos_fixint(1)); //version
 		//flags?
-		try!(file.write_msgpack_bin_header(value_size));	//value bin header
-		let mut vr = value_reader;
-		let bytes_written = try!(copy(&mut vr, &mut file, value_size as u64)); //limit to given value bytes
-		assert_eq!(bytes_written as usize, value_size);
+		try!(file.write_msgpack_bin_header(value_handle.len.unwrap()));	//value bin header
+		let bytes_written = try!(copy(&mut value_handle.reader, &mut file, value_handle.len.unwrap() as u64)); //limit to given value bytes
+		assert_eq!(bytes_written as usize, value_handle.len.unwrap());
 		
-		try!(file.write_msgpack_bin(key_buf.as_slice()));	//key complete
+		try!(file.write_msgpack_bin(key_info.key_buf.as_slice()));	//key complete
 		
 		Ok(())
 	}
 	
 	//delete a value from repository by key								
-	fn delete(&mut self, key_reader : &mut Read, key_size: usize) -> Result<()>
+	fn delete(&mut self, key_handle: &mut ReadHandle) -> Result<()>
 	{
-		let mut key_buf : Vec<u8> = Vec::with_capacity(key_size);
-		try!(key_reader.read_to_end(&mut key_buf));
+		let mut key_handle = key_handle;
+		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
 		
 		Ok(())
 	}

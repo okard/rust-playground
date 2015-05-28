@@ -11,8 +11,9 @@ path="src/lib.rs"
 
 #handle features
 [features]
-default = ["cli"]
+default = ["cli", "storage_filesystem"]
 cli = ["argparse", "linenoise-rust", "rustc-serialize"]
+storage_filesystem = []
 
 
 [[bin]]
@@ -25,6 +26,7 @@ path="bin/storage_console.rs"
 
 [dependencies]
 rust-crypto = "*" #hash algorithm, crypto
+bitflags = "*"
 
 [dependencies.msgpackio] # for filesystem backend
 path = "../msgpackio/"

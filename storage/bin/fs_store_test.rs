@@ -58,7 +58,10 @@ fn main()
 			println!("Value: {}", value);
 			let mut value_reader = Cursor::new(value.as_bytes());
 			
-			let result = fsstore.put(&mut key_reader, key.len(), &mut value_reader, value.len());
+			let mut key_hnd = storage::ReadHandle::new_with_len(&mut key_reader, key.len());
+			let mut value_hnd = storage::ReadHandle::new_with_len(&mut value_reader, value.len());
+			
+			let result = fsstore.put(&mut key_hnd, &mut value_hnd);
 			
 			if result.is_err() {
 				println!("{}", result.err().unwrap());
@@ -70,12 +73,14 @@ fn main()
 			println!("Command: {}", command);
 			
 			let mut out = io::stdout();
-			let result = fsstore.get(&mut key_reader, key.len(), &mut out);
+			let mut key_hnd = storage::ReadHandle::new_with_len(&mut key_reader, key.len());
+			let mut out_hnd = storage::WriteHandle::new(&mut out);
+			let result = fsstore.get(&mut key_hnd, &mut out_hnd);
 			
 			if result.is_err() {
 				println!("{}", result.err().unwrap());
 			}
-			else { out.write("\n".as_bytes()); }
+			else { out_hnd.writer.write("\n".as_bytes()); }
 		}
 		
 		_ => {
