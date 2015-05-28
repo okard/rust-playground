@@ -119,10 +119,14 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 		"get" => 
 		{
 			//macro? create read + size from value or key looking at prefixed values
+			//check for value 
 			
 			let mut key_handle = create_readhandle(&key);
 			let mut out_handle = storage::WriteHandle::new(&mut stdout);
 			let r = storage.get(&mut key_handle.to_handle(), &mut out_handle);
+			out_handle.writer.write("\n".as_bytes());
+			out_handle.writer.flush();
+			
 			if r.is_err() {
 				println!("{}", r.err().unwrap());
 			}

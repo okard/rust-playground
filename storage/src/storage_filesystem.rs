@@ -1,13 +1,15 @@
 
 //filesystem storage 
 extern crate msgpackio;
-
+extern crate rustc_serialize;
 
 
 use std::io::{self, Result, Read, Write, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::fs::{self, File, PathExt};
 use std::env;
+
+use self::rustc_serialize::hex::ToHex;
 
 use crypto::digest::{Digest};
 use crypto::blake2b::{Blake2b};
@@ -68,18 +70,18 @@ impl KeyInfo
 	{
 		const KEY_SIZE : usize = 32;
 		
-		let key_length = key_handle.len.unwrap();
-		
 		//read key complete
-		let mut key_buf : Vec<u8> = Vec::with_capacity(key_length);
+		let mut key_buf : Vec<u8> = if let Some(len) = key_handle.len { Vec::with_capacity(len) } else { Vec::new() };
 		try!(key_handle.reader.read_to_end(&mut key_buf));
-		let key_buf = key_buf;
-		assert!(key_buf.len() == key_length);
+		let key_buf = key_buf; //make readonly
+		if let Some(len) = key_handle.len {
+			assert!(key_buf.len() == len);
+		}
 		
 		//create hash from key
 		let mut blake2b : &mut Digest = &mut Blake2b::new(KEY_SIZE); //32 or 64?
 		blake2b.input(&key_buf);
-		let mut key_hash : Vec<u8> = Vec::with_capacity(KEY_SIZE);
+		let mut key_hash = vec![0u8; KEY_SIZE];
 		blake2b.result(&mut key_hash);
 		
 		//get hex representation:
@@ -159,7 +161,7 @@ impl KeyValueStorage for FilesystemStorage
 		let mut output_handle = output_handle;
 		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
 		
-		println!("key-hash: {:?}", key_info.key_hash);
+		println!("key-hash: {}", key_info.key_hash.to_hex());
 		println!("path: {}", key_info.data_file_path.display());
 		
 		//check if file exists
@@ -171,7 +173,8 @@ impl KeyValueStorage for FilesystemStorage
 		let mut file = try!(File::open(key_info.data_file_path));
 		
 		//version
-		if let msgpackio::Value::UInt8(x) = file.read_value().unwrap() {
+		let part = try!(file.read_value());
+		if let msgpackio::Value::UInt8(x) = part {
 			if x != 1 {
 				return Err(Error::new(ErrorKind::Other, "storage file: at the moment only version 1 is supported"));
 			}
@@ -179,14 +182,16 @@ impl KeyValueStorage for FilesystemStorage
 		else { return Err(Error::new(ErrorKind::Other, "storage file has the wrong type at version pos")); }
 		
 		//value
-		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
+		let part = try!(file.read_value());
+		if let msgpackio::Value::BinStart(x) = part {
 			try!(copy(&mut file, &mut output_handle.writer, x as u64)); //copy only x bytes to value
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
 		//key 
 		/*
-		if let msgpackio::Value::BinStart(x) = file.read_value().unwrap() {
+		let part = try!(file.read_value());
+		if let msgpackio::Value::BinStart(x) = part {
 			try!(file.seek(io::SeekFrom::Current(x as i64))); //read or skip
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry at key position")); }
@@ -204,8 +209,10 @@ impl KeyValueStorage for FilesystemStorage
 		
 		assert!(key_info.data_file_path.is_absolute());
 		
-		println!("key-hash: {:?}", key_info.key_hash);
+		println!("key-hash: {}", key_info.key_hash.to_hex());
 		println!("path: {}", key_info.data_file_path.display());
+		
+		let value_length = try!(value_handle.len.ok_or(Error::new(ErrorKind::Other, "requires value length")));
 		
 		//check for exist and read only flag
 		if key_info.data_file_path.exists() {
@@ -224,9 +231,9 @@ impl KeyValueStorage for FilesystemStorage
 		
 		try!(file.write_msgpack_pos_fixint(1)); //version
 		//flags?
-		try!(file.write_msgpack_bin_header(value_handle.len.unwrap()));	//value bin header
-		let bytes_written = try!(copy(&mut value_handle.reader, &mut file, value_handle.len.unwrap() as u64)); //limit to given value bytes
-		assert_eq!(bytes_written as usize, value_handle.len.unwrap());
+		try!(file.write_msgpack_bin_header(value_length));	//value bin header
+		let bytes_written = try!(copy(&mut value_handle.reader, &mut file, value_length as u64)); //limit to given value bytes
+		assert_eq!(bytes_written as usize, value_length);
 		
 		try!(file.write_msgpack_bin(key_info.key_buf.as_slice()));	//key complete
 		
@@ -238,6 +245,11 @@ impl KeyValueStorage for FilesystemStorage
 	{
 		let mut key_handle = key_handle;
 		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
+		
+		assert!(key_info.data_file_path.is_absolute());
+		if key_info.data_file_path.exists() {
+			//delete file
+		}
 		
 		Ok(())
 	}
