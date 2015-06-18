@@ -6,10 +6,7 @@ use std::io::{Result, Read, Write};
 enum StoreFlags
 {
 	ReadOnly, //no overwrite or delete
-	//DeleteAble //overwrite allowed?
 }
-
-//TODO trait as read_handles?
 
 ///
 /// Read handle wraps std::io::Read and a length
@@ -29,26 +26,30 @@ pub trait WriteHandle
 	fn len(&self) -> Option<usize>;
 }
 
-
 ///
 /// The absolute minimum interface for a key-value-storage
 ///
 pub trait KeyValueStorage
 {
-	
-	//get a value from repository by key, data is written to writer
-		//read key from reader
-		//write output to writer or deliver IoResult
+	///
+	/// retrieve a value from storage, the key is read through the key_handle
+	/// the content is written to the write handle 
+	///
 	fn get(&self, key_handle: &mut ReadHandle, output_handle: &mut WriteHandle) -> Result<()>;
 	
-	//put a value into repository from reader, key is given by result
-		// read key from key reader
-		// read value from value reader
-		// size for key and value
+	///
+	/// Put a value into the storage the key is read through the key handle
+	/// the value content is read by the value_handle
+	///
 	fn put(&mut self, key_handle: &mut ReadHandle, value_handle: &mut ReadHandle) -> Result<()>;
 	
-	//delete a value from repository by key								
+	/// 
+	/// delete a value from repository by key
+	///
 	fn delete(&mut self, key_handle: &mut ReadHandle) -> Result<()>;
+	
+	//fn has_flag(&self, key_handle: &mut ReadHandle, flag: StoreFlags) -> Result<bool>
+	//fn toggle_flag(&mut self, key_handle: &mut ReadHandle, flag: StoreFlags) -> Result<bool>
 }
 
 ///
@@ -56,7 +57,18 @@ pub trait KeyValueStorage
 ///
 pub trait ContentStorage
 {
-	fn put(&mut self, content: &mut ReadHandle) -> Result<&mut ReadHandle>;
+	///
+	/// put content into storage
+	///
+	fn put(&mut self, content: &mut ReadHandle, key_output: &mut WriteHandle) -> Result<()>;
+	
+	///
+	/// get content with key
+	///
 	fn get(&self, key: &mut ReadHandle, output: &mut WriteHandle) -> Result<()>;
+	
+	///
+	/// delete content
+	///
 	fn delete(&mut self, key: &mut ReadHandle) -> Result<()>;
 }

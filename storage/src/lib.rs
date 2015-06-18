@@ -16,6 +16,7 @@ extern crate log;
 //interface traits
 mod core; 
 mod extended;
+mod util;
 
 //feature flags which backend to include
 
@@ -36,3 +37,4 @@ pub use core::ReadHandle;
 pub use core::WriteHandle;
 pub use core::KeyValueStorage;
 pub use storage_filesystem::FilesystemStorage;
+pub use storage_memory::MemoryStorage;

@@ -38,7 +38,7 @@ use log::{LogRecord, LogLevel, LogMetadata, LogLevelFilter};
 use rustc_serialize::base64::{FromBase64};
 use rustc_serialize::hex::{FromHex};
 
-use storage::{KeyValueStorage, FilesystemStorage};
+use storage::{KeyValueStorage, FilesystemStorage, MemoryStorage};
 
 ///
 /// Storage console readhandle
@@ -230,6 +230,11 @@ fn main()
 			
 			//create file system
 		}
+		
+		"mem" => {
+			storage = Some(Box::new(MemoryStorage::new()));
+		}
+		
 		_ => {}
 	}
 	if storage.is_none() {
