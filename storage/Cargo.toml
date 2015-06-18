@@ -17,16 +17,13 @@ storage_filesystem = []
 
 
 [[bin]]
-name="fs_store_test"
-path="bin/fs_store_test.rs"
-
-[[bin]]
 name="storage_console"
 path="bin/storage_console.rs"
 
 [dependencies]
 rust-crypto = "*" #hash algorithm, crypto
 bitflags = "*"
+log = "*"
 
 [dependencies.msgpackio] # for filesystem backend
 path = "../msgpackio/"

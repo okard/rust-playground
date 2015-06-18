@@ -23,35 +23,71 @@ Commands:
 */
 #![feature(convert)] 
 #![feature(box_syntax)]
+
+extern crate log;
 extern crate linenoise;
 extern crate argparse;
 extern crate rustc_serialize;
-use argparse::{ArgumentParser, Store};
+extern crate storage;
 
+use std::io::{Write, Read, Cursor, Result, Error, ErrorKind}; //ErrorKind, Error, Result
+use std::fs::File;
+
+use argparse::{ArgumentParser, Store};
+use log::{LogRecord, LogLevel, LogMetadata, LogLevelFilter};
 use rustc_serialize::base64::{FromBase64};
 use rustc_serialize::hex::{FromHex};
 
-extern crate storage;
 use storage::{KeyValueStorage, FilesystemStorage};
 
-use std::io::{Read, Cursor}; //ErrorKind, Error, Result
-use std::fs::File;
-
+///
+/// Storage console readhandle
+///
 struct ReadHandle<'a>
 {
 	reader: Box<Read + 'a>,
 	size: usize
 }
 
-impl<'a> ReadHandle<'a>
+impl<'a> storage::ReadHandle for ReadHandle<'a>
 {
-	fn to_handle(&mut self) -> storage::ReadHandle 
+	fn get_reader(&mut self) -> &mut Read 
 	{
-		storage::ReadHandle::new_with_len(&mut self.reader, self.size)
+		&mut self.reader
 	}
 	
+	fn len(&self) -> Option<usize>
+	{
+		Some(self.size)
+	}
 }
 
+///
+/// Write handle
+///
+struct WriteHandle<'a>
+{
+	writer: &'a mut Write,
+	size: Option<usize>
+}
+
+impl<'a> storage::WriteHandle for WriteHandle<'a>
+{
+	fn get_writer(&mut self) -> &mut Write 
+	{
+		&mut self.writer
+	}
+	
+	fn len(&self) -> Option<usize>
+	{
+		self.size
+	}
+}
+
+///
+/// create a readhandle from a special string
+/// 	can read hex, file, base64 values
+///
 fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'a>>
 {
 	if input.starts_with("hex:") {
@@ -86,8 +122,10 @@ fn create_readhandle<'a>(input: &'a str) -> ReadHandle<'a> //Result<ReadHandle<'
 	}
 }
 
-//handle line
-fn handle_line(storage: &mut KeyValueStorage, line: &str)
+///
+/// handle line
+/// 
+fn handle_line(storage: &mut KeyValueStorage, line: &str) -> Result<()>
 {
 	let mut stdout = std::io::stdout(); //put into context struct
 	let mut stderr = std::io::stderr();
@@ -110,47 +148,62 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str)
 		ap.refer(&mut value).add_argument("value", Store, "Value Data");
 		let r = ap.parse(args, &mut stdout, &mut stderr);
 		if r.is_err() {
-				println!("{}", r.err().unwrap());
+			return Err(Error::new(ErrorKind::Other, "argument parsing failed"));
 		}
 	}
 	
 	//handle commands
-	match command.as_str() {
+	match command.as_str() 
+	{
 		"get" => 
 		{
 			//macro? create read + size from value or key looking at prefixed values
 			//check for value 
 			
 			let mut key_handle = create_readhandle(&key);
-			let mut out_handle = storage::WriteHandle::new(&mut stdout);
-			let r = storage.get(&mut key_handle.to_handle(), &mut out_handle);
-			out_handle.writer.write("\n".as_bytes());
-			out_handle.writer.flush();
-			
-			if r.is_err() {
-				println!("{}", r.err().unwrap());
-			}
+			let mut out_handle = WriteHandle { writer: &mut stdout, size: None };
+			try!(storage.get(&mut key_handle, &mut out_handle));
+			try!(out_handle.writer.write("\n".as_bytes()));
+			try!(out_handle.writer.flush());
 		}
 		"put" => 
 		{
 			let mut key_handle = create_readhandle(&key);
 			let mut value_handle =  create_readhandle(&value);
-				
-			let r = storage.put(&mut key_handle.to_handle(), &mut value_handle.to_handle());
-			if r.is_err() {
-				println!("{}", r.err().unwrap());
-			}
+			try!(storage.put(&mut key_handle, &mut value_handle));
 		}
+		"delete" => 
+		{
+			let mut key_handle = create_readhandle(&key);
+			try!(storage.delete(&mut key_handle));
+		}
+		
 		//TODO delete command
 		//TODO meta command
 		//TODO set_flags command
 		//TODO do_file command
 		_ => { println!("Wrong command: {}", command.as_str()); }
 	}
+	
+	Ok(())
 }
 
+///
+/// The main function
+///
 fn main() 
 {
+	//setup logger
+	let r = log::set_logger(|max_log_level| {
+		max_log_level.set(LogLevelFilter::Debug);
+		Box::new(StdoutLogger)
+	});
+	
+	if r.is_err() {
+		println!("failed to initialize the logger");
+		return;
+	}
+	
 	let mut repo_type = "".to_string();
 	let mut repo_path = "".to_string();
 	{
@@ -177,8 +230,13 @@ fn main()
 			
 			//create file system
 		}
-		_ => { println!("Invalid storage type"); return; }
+		_ => {}
 	}
+	if storage.is_none() {
+		println!("Invalid storage type"); 
+		return;
+	}
+	
 	
 	let mut storage = storage.unwrap();
 	
@@ -195,12 +253,33 @@ fn main()
 				if input == "exit" 
 				|| input == "q" 
 				|| input == "quit" {
-				   break;
+					break;
 				}
 				
 				linenoise::history_add(input.as_str());
-				handle_line(&mut *storage, input.as_str());
+				let r = handle_line(&mut *storage, input.as_str());
+				if r.is_err() {
+					println!("error: {}", r.err().unwrap());
+				}
 			}
+		}
+	}
+}
+
+/// phantom struct for implementing a stdout logger
+struct StdoutLogger;
+
+impl log::Log for StdoutLogger 
+{
+	fn enabled(&self, metadata: &LogMetadata) -> bool 
+	{
+		metadata.level() <= LogLevel::Debug
+	}
+
+	fn log(&self, record: &LogRecord) 
+	{
+		if self.enabled(record.metadata()) {
+			println!("{}", record.args());
 		}
 	}
 }

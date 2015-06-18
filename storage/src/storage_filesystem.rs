@@ -71,10 +71,10 @@ impl KeyInfo
 		const KEY_SIZE : usize = 32;
 		
 		//read key complete
-		let mut key_buf : Vec<u8> = if let Some(len) = key_handle.len { Vec::with_capacity(len) } else { Vec::new() };
-		try!(key_handle.reader.read_to_end(&mut key_buf));
+		let mut key_buf : Vec<u8> = if let Some(len) = key_handle.len() { Vec::with_capacity(len) } else { Vec::new() };
+		try!(key_handle.get_reader().read_to_end(&mut key_buf));
 		let key_buf = key_buf; //make readonly
-		if let Some(len) = key_handle.len {
+		if let Some(len) = key_handle.len() {
 			assert!(key_buf.len() == len);
 		}
 		
@@ -91,6 +91,8 @@ impl KeyInfo
 		let mut path = PathBuf::from(&fsstorage.repo_path);
 		path.push(&key_hash_str[0..2]);
 		path.push(&key_hash_str[2..]);
+		
+		//assert path is subpath from repo_path?
 		
 		Ok(KeyInfo {
 			key_buf: key_buf,
@@ -114,7 +116,8 @@ impl KeyInfo
 pub struct FilesystemStorage
 {
 	//path of storage has to exist
-	repo_path: PathBuf
+	repo_path: PathBuf,
+	//crypto key for encryption
 }
 
 impl FilesystemStorage
@@ -134,7 +137,7 @@ impl FilesystemStorage
 			path.push(path_in);
 		}
 		
-		//println!("repo_path: {}", path.display());
+		debug!("[fs-storage]: opened on path {}", path.display());
 		assert!(path.is_absolute() && path.is_dir());
 				
 		Ok(FilesystemStorage {
@@ -159,10 +162,10 @@ impl KeyValueStorage for FilesystemStorage
 	{
 		let mut key_handle = key_handle;
 		let mut output_handle = output_handle;
-		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
+		let key_info = try!(KeyInfo::new(&self, key_handle));
 		
-		println!("key-hash: {}", key_info.key_hash.to_hex());
-		println!("path: {}", key_info.data_file_path.display());
+		debug!("[fs-storage-get]: key-hash: {}", key_info.key_hash.to_hex());
+		debug!("[fs-storage-get]: path: {}", key_info.data_file_path.display());
 		
 		//check if file exists
 		if !key_info.data_file_path.exists() {
@@ -184,7 +187,7 @@ impl KeyValueStorage for FilesystemStorage
 		//value
 		let part = try!(file.read_value());
 		if let msgpackio::Value::BinStart(x) = part {
-			try!(copy(&mut file, &mut output_handle.writer, x as u64)); //copy only x bytes to value
+			try!(copy(&mut file, &mut output_handle.get_writer(), x as u64)); //copy only x bytes to value
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
@@ -205,20 +208,20 @@ impl KeyValueStorage for FilesystemStorage
 	{
 		let mut key_handle = key_handle;
 		let mut value_handle = value_handle;
-		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
+		let key_info = try!(KeyInfo::new(&self, key_handle));
 		
 		assert!(key_info.data_file_path.is_absolute());
 		
-		println!("key-hash: {}", key_info.key_hash.to_hex());
-		println!("path: {}", key_info.data_file_path.display());
+		debug!("[fs-storage-put]: key-hash: {}", key_info.key_hash.to_hex());
+		debug!("[fs-storage-put]: path: {}", key_info.data_file_path.display());
 		
-		let value_length = try!(value_handle.len.ok_or(Error::new(ErrorKind::Other, "requires value length")));
+		let value_length = try!(value_handle.len().ok_or(Error::new(ErrorKind::Other, "requires value length")));
 		
 		//check for exist and read only flag
 		if key_info.data_file_path.exists() {
 			//if read only error
 			//else go to overwrite value
-			println!("file already exists going to overwrite"); //debug info
+			debug!("[fs-storage-put]: file already exists going to overwrite");
 		}
 		
 		//create dir if it not exists
@@ -232,7 +235,7 @@ impl KeyValueStorage for FilesystemStorage
 		try!(file.write_msgpack_pos_fixint(1)); //version
 		//flags?
 		try!(file.write_msgpack_bin_header(value_length));	//value bin header
-		let bytes_written = try!(copy(&mut value_handle.reader, &mut file, value_length as u64)); //limit to given value bytes
+		let bytes_written = try!(copy(&mut value_handle.get_reader(), &mut file, value_length as u64)); //limit to given value bytes
 		assert_eq!(bytes_written as usize, value_length);
 		
 		try!(file.write_msgpack_bin(key_info.key_buf.as_slice()));	//key complete
@@ -244,14 +247,20 @@ impl KeyValueStorage for FilesystemStorage
 	fn delete(&mut self, key_handle: &mut ReadHandle) -> Result<()>
 	{
 		let mut key_handle = key_handle;
-		let key_info = try!(KeyInfo::new(&self, &mut key_handle));
+		let key_info = try!(KeyInfo::new(&self, key_handle));
+		
+		debug!("[fs-storage-delete]: key-hash: {}", key_info.key_hash.to_hex());
+		debug!("[fs-storage-delete]: path: {}", key_info.data_file_path.display());
 		
 		assert!(key_info.data_file_path.is_absolute());
 		if key_info.data_file_path.exists() {
 			//delete file
+			try!(fs::remove_file(key_info.data_file_path));
+			Ok(())
 		}
-		
-		Ok(())
+		else {
+			return Err(Error::new(ErrorKind::Other, "no entry with this key found"));
+		}
 	}
 	
 	

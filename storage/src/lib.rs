@@ -10,6 +10,9 @@ extern crate bitflags;
 
 extern crate crypto;
 
+#[macro_use]
+extern crate log;
+
 //interface traits
 mod core; 
 mod extended;

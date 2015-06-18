@@ -3,67 +3,30 @@ use std::io::{Result, Read, Write};
 
 //define own result with own error
 
-enum Flags
+enum StoreFlags
 {
-	ReadOnly,
-	Deleteable
+	ReadOnly, //no overwrite or delete
+	//DeleteAble //overwrite allowed?
 }
 
-//options/flags like readonly?
-//enum EntryFlags { ReadOnly, Deleteable, }
-//set_flags api
+//TODO trait as read_handles?
 
-
-/// A ReadHandle that wraps a Read and length
-pub struct ReadHandle<'a>
+///
+/// Read handle wraps std::io::Read and a length
+///
+pub trait ReadHandle
 {
-	pub reader: &'a mut Read,
-	pub len: Option<usize>
+	fn get_reader(&mut self) -> &mut Read;
+	fn len(&self) -> Option<usize>;
 }
 
-impl<'a> ReadHandle<'a>
-{
-	pub fn new_with_len(reader: &mut Read, len: usize) -> ReadHandle
-	{
-		ReadHandle {
-			reader: reader,
-			len: Some(len)
-		}
-	}
-	
-	pub fn new(reader: &mut Read) -> ReadHandle
-	{
-		ReadHandle {
-			reader: reader,
-			len: None
-		}
-	}
-}
-
+///
 /// A write handle that wraps std::io::Write and a length
-pub struct WriteHandle<'a>
+///
+pub trait WriteHandle
 {
-	pub writer: &'a mut Write,
-	pub len: Option<usize>
-}
-
-impl<'a> WriteHandle<'a>
-{
-	pub fn new_with_len(writer: &mut Write, len: usize) -> WriteHandle
-	{
-		WriteHandle {
-			writer: writer,
-			len: Some(len)
-		}
-	}
-	
-	pub fn new(writer: &mut Write) -> WriteHandle
-	{
-		WriteHandle {
-			writer: writer,
-			len: None
-		}
-	}
+	fn get_writer(&mut self) -> &mut Write;
+	fn len(&self) -> Option<usize>;
 }
 
 
