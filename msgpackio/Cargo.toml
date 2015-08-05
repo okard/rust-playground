@@ -9,9 +9,10 @@ name="msgpackio"
 path="src/lib.rs"
 
 [[bin]]
-name="msgpack_iter"
-path="src/main.rs"
-
+name="dump_msgpack"
+path="bin/dump_msgpack.rs"
 
 [dependencies]
 byteorder = "*"
+argparse = "*"
+

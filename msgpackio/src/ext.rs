@@ -3,7 +3,11 @@
 
 use std::io::{Result, Read};
 
-//inline?
+
+//TODO inline hint?
+///
+/// Reads a specific length from a Read trait into given Vec
+///
 pub fn read_to_vec(reader: &mut Read, size: usize, buf: &mut Vec<u8>) -> Result<usize>
 {
 	if buf.len() < size {

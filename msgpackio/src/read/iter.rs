@@ -1,6 +1,7 @@
 
-use super::value::{Value};
-use super::reader::{MsgPackReader};
+use id::{MsgPackId};
+use read::value::{Value};
+use read::reader::{MsgPackReader};
 
 use std::io::{Read};
 //use std::iter::{IntoIterator};
@@ -14,6 +15,12 @@ enum MsgPackIteratorState
 	Array(usize)
 }
 * */
+/*
+enum MsgPackValueHandle
+{
+	Int...
+}
+*/
 
 //bytes readed
 
@@ -29,6 +36,15 @@ pub struct MsgPackIterator<'a, T: 'a>
 
 	//depth -> stack count 
 	
+	//provide a &mut 'a Handle Function?
+	//internal Handle stack state
+	//so values can be skipped and reader doesnt get stuck on an invalid point
+		//is error then
+	
+	//different error strategy?
+		//error state -> data is corrupted doesnt make sense to find anything
+		//search for next header (maybe unsafe)
+		//report position in datastream?
 }
 
 /*
@@ -44,34 +60,23 @@ impl<'a, T> MsgPackIterator<'a, T>
 
 //read trait
 
+
 impl<'a, T> Iterator for MsgPackIterator<'a, T>
 	where T: Read
 {
-	type Item = Value; //better wrapper?
-						//array, map, start value?, end value?
-						//sax style api?
+	type Item = Value;
 	
 	fn next(&mut self) -> Option<<Self as Iterator>::Item>
 	{
-		//let reader : &mut MsgPackReader = reader;
-		let r = self.reader.read_value();
-		
-		if r.is_ok() {
-			let value = r.ok().unwrap();
-			
-			/*match(value)
-			{
-				
-			}*/
-			
-			
-			Some(value)
+		if let Ok(v) = self.reader.read_msgpack_value() {
+			Some(v)
 		}
 		else {
 			None
 		}
 	}
 }
+
 
 
 

@@ -3,7 +3,7 @@
 
 //zero copy api?
 
-use super::id::{MsgPackId};
+use id::{MsgPackId};
 
 //put this into enum?
 
@@ -13,11 +13,12 @@ impl<'a> Int8Map<'a>
 {
 	pub fn new<'b>(slice: & 'b [u8]) -> Option<Int8Map<'b>>
 	{
-		if slice.len() >= 2 
-		//|| slice[0] != MsgPackId::Int8.as_u8() 
+		if slice.len() != 2 
+		|| Some(MsgPackId::Int8) != MsgPackId::from_u8(slice[0])
 		{
 			return None;
 		}
+		
 		//check slice
 		Some(Int8Map(slice))
 	}

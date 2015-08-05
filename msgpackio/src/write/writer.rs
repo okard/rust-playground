@@ -1,8 +1,20 @@
 
 
-use std::io::{Result, Error, ErrorKind, Write};
+use std::io::{Result, Error, ErrorKind, Write, Read};
 
 use byteorder::{WriteBytesExt, BigEndian};
+
+
+
+//TODO iterator that deliver a MsgPackValue interface?
+
+pub enum MsgPackData<'a>
+{
+	Slice(&'a [u8]),
+	Reader(&'a mut Read, usize)
+}
+
+
 
 /**
 * The MsgPackWriter trait to write msgpack data
@@ -119,8 +131,10 @@ pub trait MsgPackWriter : Write
 	* str 8
 	* str 16
 	* str 32
+	* TODO Requires a Data interface to read from? (&String, &str, Read) 
+	* TODO make length a optional argument? 
 	*/
-	fn write_msgpack_str_header(&mut self, length: usize) -> Result<usize>
+	unsafe fn write_msgpack_str_header(&mut self, length: usize) -> Result<usize>
 	{
 		//write with right size
 		match length
@@ -163,7 +177,9 @@ pub trait MsgPackWriter : Write
 	fn write_msgpack_str(&mut self, value: &str) -> Result<usize>
 	{
 		let mut len = value.len();
-		len = try!(self.write_msgpack_str_header(len));
+		unsafe {
+			len = try!(self.write_msgpack_str_header(len));
+		}
 		len += try!(self.write(value.as_bytes()));
 		return Ok(len);
 	}
@@ -173,7 +189,7 @@ pub trait MsgPackWriter : Write
 	/**
 	* write a binary header
 	*/
-	fn write_msgpack_bin_header(&mut self, length: usize) -> Result<usize>
+	unsafe fn write_msgpack_bin_header(&mut self, length: usize) -> Result<usize>
 	{
 		match length
 		{
@@ -208,7 +224,7 @@ pub trait MsgPackWriter : Write
 	//bin 32
 	fn write_msgpack_bin(&mut self, data: &[u8]) -> Result<usize>
 	{
-		let mut len = try!(self.write_msgpack_bin_header(data.len()));
+		let mut len = try!(unsafe{self.write_msgpack_bin_header(data.len())});
 		len += try!(self.write(data));
 		return Ok(len);
 	}
@@ -219,7 +235,7 @@ pub trait MsgPackWriter : Write
 	* array 16
 	* array 32
 	*/
-	fn write_msgpack_array_start(&mut self, element_count: usize) -> Result<usize>
+	unsafe fn write_msgpack_array_start(&mut self, element_count: usize) -> Result<usize>
 	{
 		match element_count
 		{
@@ -249,14 +265,22 @@ pub trait MsgPackWriter : Write
 			_ => { return Err(Error::new(ErrorKind::Other, "too many elements for array")); }
 		}
 	}
-	//write simple starts
+	
+	//TODO write a safe array writer with a Value interface
+	/*
+	fn write_msgpack_array<I>(&mut self, element_count: usize, iterator: I) -> Result<usize> 
+		where I: Iterator<Item=_>
+	*/
+		
+	
 	
 	/*
 	* fixmap
 	* map 16
-	* map 32 
+	* map 32
+	* TODO for safe writing requires a closure function? (which can contain a pair interator?)
 	*/
-	fn write_msgpack_map_start(&mut self, pair_count: usize) -> Result<usize>
+	unsafe fn write_msgpack_map_start(&mut self, pair_count: usize) -> Result<usize>
 	{
 		match pair_count
 		{
