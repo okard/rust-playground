@@ -3,26 +3,18 @@ extern crate msgpackio;
 
 use std::io::{Cursor};
 
-use msgpackio::writer::{MsgPackWriter};
-use msgpackio::reader::{MsgPackReader};
+use msgpackio::write::{MsgPackWriter};
+use msgpackio::read::{Value, MsgPackReader};
 use msgpackio::ext;
-use msgpackio::value::{Value};
 
 
 macro_rules! test_read {
     ($a:pat, $b:expr, $c:expr) => 
     {
         {
-			
-			$b.read_msgpack_value(|_, v| {
-				if let &$a = v {
-					$c;
-				}
-				else {
-					assert!(false, "The returned value has not the correct type");
-				}
-			})
-			
+			if let $a = $b.read_msgpack_value().unwrap() {
+			}
+			else{assert!(false, "The returned value has not the correct type");}
         }
     };
 }
