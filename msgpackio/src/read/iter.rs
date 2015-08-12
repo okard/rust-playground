@@ -1,5 +1,5 @@
 
-use id::{MsgPackId};
+//use id::{MsgPackId};
 use read::value::{Value};
 use read::reader::{MsgPackReader};
 
@@ -68,7 +68,7 @@ impl<'a, T> Iterator for MsgPackIterator<'a, T>
 	
 	fn next(&mut self) -> Option<<Self as Iterator>::Item>
 	{
-		if let Ok(v) = self.reader.read_msgpack_value() {
+		if let Ok((v,_)) = self.reader.read_msgpack_value() {
 			Some(v)
 		}
 		else {

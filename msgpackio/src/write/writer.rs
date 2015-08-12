@@ -4,7 +4,7 @@ use std::io::{Result, Error, ErrorKind, Write, Read};
 
 use byteorder::{WriteBytesExt, BigEndian};
 
-
+use ext;
 
 //TODO iterator that deliver a MsgPackValue interface?
 
@@ -229,6 +229,16 @@ pub trait MsgPackWriter : Write
 		return Ok(len);
 	}
 	
+	
+	fn write_msgpack_bin_read(&mut self, reader: &mut Read, len: usize)  -> Result<usize>
+	{
+		let mut len = try!(unsafe{self.write_msgpack_bin_header(len)});
+		
+		let mut reader = reader;
+		let mut writer = self;
+		len += try!(ext::copy(&mut reader, &mut writer, len as u64)) as usize;
+		return Ok(len);
+	}
 
 	/*
 	* fixarray
