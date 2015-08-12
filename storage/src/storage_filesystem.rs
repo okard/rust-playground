@@ -4,7 +4,7 @@ extern crate msgpackio;
 extern crate rustc_serialize;
 
 
-use std::io::{self, Result, Read, Write, Error, ErrorKind};
+use std::io::{Result, Read, Error, ErrorKind, Cursor};
 use std::path::{Path, PathBuf};
 use std::fs::{self, File, PathExt};
 use std::env;
@@ -14,7 +14,8 @@ use self::rustc_serialize::hex::ToHex;
 use crypto::digest::{Digest};
 use crypto::blake2b::{Blake2b};
 
-use self::msgpackio::{MsgPackReader, MsgPackWriter};
+use self::msgpackio::read::{MsgPackReader, Value};
+use self::msgpackio::write::{MsgPackWriter};
 
 use super::core::{ReadHandle, WriteHandle, KeyValueStorage};
 use super::util;
@@ -150,8 +151,8 @@ impl KeyValueStorage for FilesystemStorage
 		let mut file = try!(File::open(key_info.data_file_path));
 		
 		//version
-		let part = try!(file.read_value());
-		if let msgpackio::Value::UInt8(x) = part {
+		let (part, _) = try!(file.read_msgpack_value());
+		if let Value::UInt8(x) = part {
 			if x != 1 {
 				return Err(Error::new(ErrorKind::Other, "storage file: at the moment only version 1 is supported"));
 			}
@@ -159,9 +160,11 @@ impl KeyValueStorage for FilesystemStorage
 		else { return Err(Error::new(ErrorKind::Other, "storage file has the wrong type at version pos")); }
 		
 		//value
-		let part = try!(file.read_value());
-		if let msgpackio::Value::BinStart(x) = part {
-			try!(util::copy(&mut file, &mut output_handle.get_writer(), x as u64)); //copy only x bytes to value
+		let (part, _) = try!(file.read_msgpack_value());
+		if let Value::Bin(x) = part {
+			let len = x.len() as u64;
+			let mut source = Cursor::new(x);
+			try!(util::copy(&mut source, &mut output_handle.get_writer(), len)); //copy only x bytes to value
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
@@ -208,8 +211,8 @@ impl KeyValueStorage for FilesystemStorage
 		
 		try!(file.write_msgpack_pos_fixint(1)); //version
 		//flags?
-		try!(file.write_msgpack_bin_header(value_length));	//value bin header
-		let bytes_written = try!(util::copy(&mut value_handle.get_reader(), &mut file, value_length as u64)); //limit to given value bytes
+		let bytes_written = try!(file.write_msgpack_bin_read(&mut value_handle.get_reader(), value_length));
+		
 		assert_eq!(bytes_written as usize, value_length);
 		
 		try!(file.write_msgpack_bin(key_info.key_buf.as_slice()));	//key complete

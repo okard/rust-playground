@@ -1,5 +1,5 @@
 
-use std::io::{self, Result, Read, Write, Error, ErrorKind};
+use std::io::{self, Result, Read, Write, ErrorKind};
 
 
 //copy with length limiting
