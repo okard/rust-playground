@@ -56,15 +56,28 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixPosInt => { return Ok((Value::UInt8(buf[0] & 0x7f), msgpack_id)); }
 			MsgPackId::FixNegInt => { return Ok((Value::Int8(-((buf[0] & 0x1f) as i8)), msgpack_id)); } //right?
 			
-			/*
+			
 			MsgPackId::FixMap => { 
-				return Ok(Value::MapStart((buf[0] & 0x0f) as usize));
+				let pair_count = (buf[0] & 0x0f) as usize;
+				let mut map : Vec<(Value,Value)> = Vec::with_capacity(pair_count);
+				for _ in 0..pair_count {
+					let (key, _) = try!(self.read_msgpack_value());
+					let (value, _) = try!(self.read_msgpack_value());
+					map.push((key, value));
+				}
+				return Ok((Value::Map(map), msgpack_id));
 			}
 			
 			MsgPackId::FixArray => { 
-				return Ok(Value::ArrayStart((buf[0] & 0x0f) as usize));
+				let element_count = (buf[0] & 0x0f) as usize;
+				let mut array : Vec<Value> = Vec::with_capacity(element_count);
+				for _ in 0..element_count {
+					let (element, _) = try!(self.read_msgpack_value());
+					array.push(element);
+				}
+				return Ok((Value::Array(array), msgpack_id));
 			}
-			*/
+			
 			
 			MsgPackId::FixStr => { 
 				let len = (buf[0] & 0x1f) as usize;
@@ -256,33 +269,55 @@ pub trait MsgPackReader : Read
 				}
 			}
 			
-			/*
+			
 			//0xdc array 16
 			MsgPackId::Array16 => {
-				let length = try!(self.read_u16::<BigEndian>());
-				return Ok(Value::ArrayStart(length as usize));
+				let element_count = try!(self.read_u16::<BigEndian>());
+				let mut array : Vec<Value> = Vec::with_capacity(element_count as usize);
+				for _ in 0..element_count {
+					let (element, _) = try!(self.read_msgpack_value());
+					array.push(element);
+				}
+				return Ok((Value::Array(array), msgpack_id));
 			}
 			
 			//0xdd array 32
 			MsgPackId::Array32 => {
-				let length = try!(self.read_u32::<BigEndian>());
-				return Ok(Value::ArrayStart(length as usize));
+				let element_count = try!(self.read_u32::<BigEndian>());
+				let mut array : Vec<Value> = Vec::with_capacity(element_count as usize);
+				for _ in 0..element_count {
+					let (element, _) = try!(self.read_msgpack_value());
+					array.push(element);
+				}
+				return Ok((Value::Array(array), msgpack_id));
 			}
 			
 			//0xde -> map 16
 			MsgPackId::Map16 => {
-				let length = try!(self.read_u16::<BigEndian>());
-				return Ok(Value::MapStart(length as usize));
+				let pair_count = try!(self.read_u16::<BigEndian>());
+				let mut map : Vec<(Value,Value)> = Vec::with_capacity(pair_count as usize);
+				for _ in 0..pair_count {
+					let (key, _) = try!(self.read_msgpack_value());
+					let (value, _) = try!(self.read_msgpack_value());
+					map.push((key, value));
+				}
+				return Ok((Value::Map(map), msgpack_id));
 			}
 			
 			//0xdf -> map 32
 			MsgPackId::Map32 => {
-				let length = try!(self.read_u32::<BigEndian>());
-				return Ok(Value::MapStart(length as usize));
+				let pair_count = try!(self.read_u32::<BigEndian>());
+				let mut map : Vec<(Value,Value)> = Vec::with_capacity(pair_count as usize);
+				for _ in 0..pair_count {
+					let (key, _) = try!(self.read_msgpack_value());
+					let (value, _) = try!(self.read_msgpack_value());
+					map.push((key, value));
+				}
+				return Ok((Value::Map(map), msgpack_id));
 			}
-			*/
 			
-			_ => { return Err(Error::new(ErrorKind::Other, "Not implemented")); }
+			
+			//_ => { return Err(Error::new(ErrorKind::Other, "Not implemented")); }
 		}
 	}
 	
