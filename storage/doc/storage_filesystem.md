@@ -26,9 +26,22 @@ git-like objects folder
 Current Version 1 (not yet finished)
 Encoded using [msgpack](http://msgpack.org/)
 
+Format differs based on flags?
+
+Key-Value-Format
+
 ```
-version: positive fixint
-#flags (not yet implemented, feature flags)
+version: positive fixint (current 1)
+flags: uint32 (not yet used, feature flags, key_value object)
 value: bin 8; bin 16; bin 32 (using the smallest possible)
 key: bin 8; bin 16; bin 32 (using the smallest possible)
+```
+
+
+CAS-Format:
+
+```
+version: positive fixint (current 1)
+flags: uint32 (not yet used, feature flags, cas object)
+value: bin 8; bin 16; bin 32 (using the smallest possible)
 ```

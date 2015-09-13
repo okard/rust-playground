@@ -49,19 +49,6 @@ struct ReadHandle<'a>
 	size: usize
 }
 
-impl<'a> storage::ReadHandle for ReadHandle<'a>
-{
-	fn get_reader(&mut self) -> &mut Read 
-	{
-		&mut self.reader
-	}
-	
-	fn len(&self) -> Option<usize>
-	{
-		Some(self.size)
-	}
-}
-
 ///
 /// Write handle
 ///
@@ -69,19 +56,6 @@ struct WriteHandle<'a>
 {
 	writer: &'a mut Write,
 	size: Option<usize>
-}
-
-impl<'a> storage::WriteHandle for WriteHandle<'a>
-{
-	fn get_writer(&mut self) -> &mut Write 
-	{
-		&mut self.writer
-	}
-	
-	fn len(&self) -> Option<usize>
-	{
-		self.size
-	}
 }
 
 ///
@@ -162,7 +136,11 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str) -> Result<()>
 			
 			let mut key_handle = create_readhandle(&key);
 			let mut out_handle = WriteHandle { writer: &mut stdout, size: None };
-			try!(storage.get(&mut key_handle, &mut out_handle));
+			{
+				let mut skey_handle = storage::ReadHandle::Reader(&mut key_handle.reader, Some(key_handle.size));
+				let mut sout_handle = storage::WriteHandle::Writer(&mut out_handle.writer, out_handle.size);
+				try!(storage.get(&mut skey_handle, &mut sout_handle));
+			}
 			try!(out_handle.writer.write("\n".as_bytes()));
 			try!(out_handle.writer.flush());
 		}
@@ -170,12 +148,16 @@ fn handle_line(storage: &mut KeyValueStorage, line: &str) -> Result<()>
 		{
 			let mut key_handle = create_readhandle(&key);
 			let mut value_handle =  create_readhandle(&value);
-			try!(storage.put(&mut key_handle, &mut value_handle));
+			let mut skey_handle = storage::ReadHandle::Reader(&mut key_handle.reader, Some(key_handle.size));
+			let mut svalue_handle = storage::ReadHandle::Reader(&mut value_handle.reader, Some(value_handle.size));
+				
+			try!(storage.put(&mut skey_handle, &mut svalue_handle));
 		}
 		"delete" => 
 		{
 			let mut key_handle = create_readhandle(&key);
-			try!(storage.delete(&mut key_handle));
+			let mut skey_handle = storage::ReadHandle::Reader(&mut key_handle.reader, Some(key_handle.size));
+			try!(storage.delete(&mut skey_handle));
 		}
 		
 		//TODO delete command

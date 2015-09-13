@@ -1,30 +1,7 @@
 
-use std::io::{Result, Read, Write};
+use std::io::{Result}; //TODO use custom error
+use super::{ReadHandle, WriteHandle};
 
-//define own result with own error
-
-enum StoreFlags
-{
-	ReadOnly, //no overwrite or delete
-}
-
-///
-/// Read handle wraps std::io::Read and a length
-///
-pub trait ReadHandle
-{
-	fn get_reader(&mut self) -> &mut Read;
-	fn len(&self) -> Option<usize>;
-}
-
-///
-/// A write handle that wraps std::io::Write and a length
-///
-pub trait WriteHandle
-{
-	fn get_writer(&mut self) -> &mut Write;
-	fn len(&self) -> Option<usize>;
-}
 
 ///
 /// The absolute minimum interface for a key-value-storage

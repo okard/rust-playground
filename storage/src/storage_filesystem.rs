@@ -4,7 +4,7 @@ extern crate msgpackio;
 extern crate rustc_serialize;
 
 
-use std::io::{Result, Read, Error, ErrorKind, Cursor};
+use std::io::{Result,Error, ErrorKind, Read, Cursor};
 use std::path::{Path, PathBuf};
 use std::fs::{self, File, PathExt};
 use std::env;
@@ -23,6 +23,7 @@ use super::util;
 
 bitflags! {
 	flags Flags: u32 {
+		const FLAG_NONE			= 0b00000000,
 		const FLAG_READONLY 	= 0b00000001,
 		const FLAG_DELETEABLE 	= 0b00000010,
 		const FLAG_ENCRYPTED	= 0b00000100,
@@ -45,14 +46,8 @@ impl KeyInfo
 	{
 		const KEY_SIZE : usize = 32;
 		
-		//read key complete
-		let mut key_buf : Vec<u8> = if let Some(len) = key_handle.len() { Vec::with_capacity(len) } else { Vec::new() };
-		try!(key_handle.get_reader().read_to_end(&mut key_buf));
-		let key_buf = key_buf; //make readonly
-		if let Some(len) = key_handle.len() {
-			assert!(key_buf.len() == len);
-		}
-		
+		let key_buf : Vec<u8> = try!(key_handle.to_vec());
+			
 		//create hash from key
 		let mut blake2b : &mut Digest = &mut Blake2b::new(KEY_SIZE); //32 or 64?
 		blake2b.input(&key_buf);
@@ -159,12 +154,34 @@ impl KeyValueStorage for FilesystemStorage
 		}
 		else { return Err(Error::new(ErrorKind::Other, "storage file has the wrong type at version pos")); }
 		
+		//flags
+		let (part, _) = try!(file.read_msgpack_value());
+		if let Value::UInt32(_) = part {}
+		else { return Err(Error::new(ErrorKind::Other, "format error: wrong type of flags or not available")); }
+		
 		//value
 		let (part, _) = try!(file.read_msgpack_value());
 		if let Value::Bin(x) = part {
 			let len = x.len() as u64;
 			let mut source = Cursor::new(x);
-			try!(util::copy(&mut source, &mut output_handle.get_writer(), len)); //copy only x bytes to value
+			
+			match output_handle {
+				&mut WriteHandle::Writer(ref mut writer, opt_size) => {
+					let mut writer = writer;
+					assert_eq!(len, opt_size.unwrap_or(len as usize) as u64);
+					try!(util::copy(&mut source, &mut writer, len)); //copy only x bytes to value
+				}
+				&mut WriteHandle::Slice(ref mut slice) => {
+					let mut slice = slice;
+					if len == slice.len() as u64 {
+						return Err(Error::new(ErrorKind::Other, "target slice must have the right size"));
+					}
+					let bytes_written = try!(source.read(&mut slice));
+					assert_eq!(len, bytes_written as u64);
+				}
+			}
+			
+			
 		}
 		else { return Err(Error::new(ErrorKind::Other, "wrong entry as value position")); }
 		
@@ -192,7 +209,15 @@ impl KeyValueStorage for FilesystemStorage
 		debug!("[fs-storage-put]: key-hash: {}", key_info.key_hash.to_hex());
 		debug!("[fs-storage-put]: path: {}", key_info.data_file_path.display());
 		
-		let value_length = try!(value_handle.len().ok_or(Error::new(ErrorKind::Other, "requires value length")));
+		//TODO remove this and integrate it to write code below
+		//detect value length
+		let value_length = match value_handle {
+			
+			&mut ReadHandle::Reader(_, opt_len) => {
+				try!(opt_len.ok_or(Error::new(ErrorKind::Other, "requires value length")))
+			}
+			&mut ReadHandle::Slice(slice) => slice.len()
+		};
 		
 		//check for exist and read only flag
 		if key_info.data_file_path.exists() {
@@ -210,10 +235,20 @@ impl KeyValueStorage for FilesystemStorage
 		let mut file = try!(File::create(key_info.data_file_path.as_path()));
 		
 		try!(file.write_msgpack_pos_fixint(1)); //version
-		//flags?
-		let bytes_written = try!(file.write_msgpack_bin_read(&mut value_handle.get_reader(), value_length));
+		try!(file.write_msgpack_u32(0)); //flags
+		//write the data value
+		let bytes_written = match value_handle {
+			&mut ReadHandle::Reader(ref mut reader, _) => {
+				let mut reader = reader;
+				try!(file.write_msgpack_bin_read(&mut reader, value_length))
+			}
+			&mut ReadHandle::Slice(ref slice) => { 
+				try!(file.write_msgpack_bin(slice))
+			}
+		};
 		
-		assert_eq!(bytes_written as usize, value_length);
+		//can be more msgpack header
+		assert!(bytes_written as usize >= value_length);
 		
 		try!(file.write_msgpack_bin(key_info.key_buf.as_slice()));	//key complete
 		
@@ -239,8 +274,6 @@ impl KeyValueStorage for FilesystemStorage
 			return Err(Error::new(ErrorKind::Other, "no entry with this key found"));
 		}
 	}
-	
-	
 }
 
 

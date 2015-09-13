@@ -4,21 +4,17 @@ name = "storage"
 version = "0.0.1"
 authors = []
 
-
 [lib]
 name="storage"
 path="src/lib.rs"
 
 #handle features
 [features]
-default = ["cli", "storage_filesystem"]
+default = ["cli", "storage_filesystem", "storage_memory"]
 cli = ["argparse", "linenoise-rust", "rustc-serialize"]
 storage_filesystem = []
+storage_memory = []
 
-
-[[bin]]
-name="storage_console"
-path="bin/storage_console.rs"
 
 [dependencies]
 rust-crypto = "*" #hash algorithm, crypto
@@ -33,6 +29,10 @@ path = "../msgpackio/"
 #version="*"
 
 # rocksdb optional
+
+[[bin]]
+name="storage_console"
+path="bin/storage_console.rs"
 
 # dependencies for command line interface:
 [dependencies.argparse]

@@ -9,7 +9,7 @@
 	
 use std::collections::HashMap;
 
-use std::io::{Cursor, Result, Error, ErrorKind};
+use std::io::{Cursor, Result, Read, Error, ErrorKind};
 
 use super::core::{ReadHandle, WriteHandle, KeyValueStorage};
 use super::util;
@@ -43,16 +43,31 @@ impl KeyValueStorage for MemoryStorage
 	///
 	fn get(&self, key_handle: &mut ReadHandle, output_handle: &mut WriteHandle) -> Result<()>
 	{
-		let mut key = Vec::new();
-		let key_len = key_handle.len().unwrap();
-		try!(util::copy(&mut key_handle.get_reader(), &mut key, key_len as u64));
+		let key = try!(key_handle.to_vec());
 		
 		match self.map.get(&key)
 		{
-			Some(v) => 
+			Some(v) =>
 			{
 				let mut c = Cursor::new(v.as_slice());
-				try!(util::copy(&mut c, &mut output_handle.get_writer(), v.len() as u64));
+				
+				match output_handle {
+					&mut WriteHandle::Writer(ref mut writer, opt_size) => {
+						let mut writer = writer;
+						assert_eq!(v.len(), opt_size.unwrap_or(v.len()));
+						try!(util::copy(&mut c, &mut writer, v.len() as u64));
+					}
+					&mut WriteHandle::Slice(ref mut slice) => {
+						let mut slice = slice;
+						if v.len() == slice.len() {
+							return Err(Error::new(ErrorKind::Other, "target slice must have the right size"));
+						}
+						let bytes_written = try!(c.read(&mut slice));
+						assert_eq!(v.len(), bytes_written);
+					}
+				}
+			
+				
 			}
 			None => {
 				return Err(Error::new(ErrorKind::Other, "key not found"));
@@ -67,16 +82,9 @@ impl KeyValueStorage for MemoryStorage
 	///
 	fn put(&mut self, key_handle: &mut ReadHandle, value_handle: &mut ReadHandle) -> Result<()>
 	{
-		let mut key = Vec::new();
-		let key_len = key_handle.len().unwrap();
-		try!(util::copy(&mut key_handle.get_reader(), &mut key, key_len as u64));
-		
-		let mut value = Vec::new();
-		let value_len = value_handle.len().unwrap();
-		try!(util::copy(&mut value_handle.get_reader(), &mut value, value_len as u64));
-		
+		let key = try!(key_handle.to_vec());
+		let value = try!(value_handle.to_vec());
 		self.map.insert(key, value);
-		
 		Ok(())
 	}
 	
@@ -85,10 +93,7 @@ impl KeyValueStorage for MemoryStorage
 	///
 	fn delete(&mut self, key_handle: &mut ReadHandle) -> Result<()>
 	{
-		let mut key = Vec::new();
-		let key_len = key_handle.len().unwrap();
-		try!(util::copy(&mut key_handle.get_reader(), &mut key, key_len as u64));
-		
+		let key = try!(key_handle.to_vec());		
 		self.map.remove(&key);
 		
 		Ok(())
