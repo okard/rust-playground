@@ -232,12 +232,12 @@ pub trait MsgPackWriter : Write
 	
 	fn write_msgpack_bin_read(&mut self, reader: &mut Read, len: usize)  -> Result<usize>
 	{
-		let mut len = try!(unsafe{self.write_msgpack_bin_header(len)});
+		let mut bytes_written = try!(unsafe{self.write_msgpack_bin_header(len)});
 		
 		let mut reader = reader;
 		let mut writer = self;
-		len += try!(ext::copy(&mut reader, &mut writer, len as u64)) as usize;
-		return Ok(len);
+		bytes_written += try!(ext::copy(&mut reader, &mut writer, len as u64)) as usize;
+		return Ok(bytes_written);
 	}
 
 	/*

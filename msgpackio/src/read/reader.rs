@@ -81,8 +81,9 @@ pub trait MsgPackReader : Read
 			
 			MsgPackId::FixStr => { 
 				let len = (buf[0] & 0x1f) as usize;
-				let mut  buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = Vec::with_capacity(len);
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(bytes_read, len);
 				
 				if let Ok(str) = String::from_utf8(buf) {
 					return Ok((Value::Str(str), msgpack_id));
@@ -94,46 +95,52 @@ pub trait MsgPackReader : Read
 			
 			MsgPackId::Bin8 => {
 				let len = try!(self.read_u8()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Bin(buf), msgpack_id));
 			}
 			
 			MsgPackId::Bin16 => {
 				let len = try!(self.read_u16::<BigEndian>()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Bin(buf), msgpack_id));
 			}
 			
 			MsgPackId::Bin32 => {
 				let len = try!(self.read_u32::<BigEndian>()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Bin(buf), msgpack_id));
 			}
 			
 			MsgPackId::Ext8 => {
 				let len = try!(self.read_u8()) as usize;
 				let ty = try!(self.read_i8());
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Ext(ty, buf), msgpack_id));
 			}
 			
 			MsgPackId::Ext16 => {
 				let len = try!(self.read_u16::<BigEndian>()) as usize;
 				let ty = try!(self.read_i8());
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Ext(ty, buf), msgpack_id));
 			}
 			
 			MsgPackId::Ext32 => {
 				let len = try!(self.read_u32::<BigEndian>()) as usize;
 				let ty = try!(self.read_i8());
-				let mut  buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut  buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				return Ok((Value::Ext(ty, buf), msgpack_id));
 			}
 			
@@ -191,7 +198,8 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixExt1 => {
 				let ty = try!(self.read_i8());
 				let mut buf : [u8;1] = [0];
-				try!(self.read(&mut buf));
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(1, bytes_read);
 				return Ok((Value::Ext1(ty, buf[0]), msgpack_id));
 			}
 			
@@ -199,7 +207,8 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixExt2 => {
 				let ty = try!(self.read_i8());
 				let mut buf : [u8;2] = [0;2];
-				try!(self.read(&mut buf));
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(2, bytes_read);
 				return Ok((Value::Ext2(ty, buf), msgpack_id));
 			}
 			
@@ -207,7 +216,8 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixExt4 => {
 				let ty = try!(self.read_i8());
 				let mut buf : [u8;4] = [0;4];
-				try!(self.read(&mut buf));
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(4, bytes_read);
 				return Ok((Value::Ext4(ty, buf), msgpack_id));
 			}
 			
@@ -215,7 +225,8 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixExt8 => {
 				let ty = try!(self.read_i8());
 				let mut buf : [u8;8] = [0;8];
-				try!(self.read(&mut buf));
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(8, bytes_read);
 				return Ok((Value::Ext8(ty, buf), msgpack_id));
 			}
 			
@@ -223,15 +234,17 @@ pub trait MsgPackReader : Read
 			MsgPackId::FixExt16 => {
 				let ty = try!(self.read_i8());
 				let mut buf : [u8;16] = [0;16];
-				try!(self.read(&mut buf));
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(16, bytes_read);
 				return Ok((Value::Ext16(ty, buf), msgpack_id));
 			}
 			
 			//0xd9 str 8
 			MsgPackId::Str8 => {
 				let len = try!(self.read_u8()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				
 				if let Ok(str) = String::from_utf8(buf) {
 					return Ok((Value::Str(str), msgpack_id));
@@ -244,8 +257,9 @@ pub trait MsgPackReader : Read
 			//0xda str 16
 			MsgPackId::Str16 => {
 				let len = try!(self.read_u16::<BigEndian>()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				
 				if let Ok(str) = String::from_utf8(buf) {
 					return Ok((Value::Str(str), msgpack_id));
@@ -258,8 +272,9 @@ pub trait MsgPackReader : Read
 			//0xdb str 32
 			MsgPackId::Str32 => {
 				let len = try!(self.read_u32::<BigEndian>()) as usize;
-				let mut buf = Vec::with_capacity(len);
-				try!(self.read(&mut buf));
+				let mut buf = vec![0; len];
+				let bytes_read = try!(self.read(&mut buf));
+				assert_eq!(len, bytes_read);
 				
 				if let Ok(str) = String::from_utf8(buf) {
 					return Ok((Value::Str(str), msgpack_id));
