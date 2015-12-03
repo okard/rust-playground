@@ -2,7 +2,7 @@
 
 
 extern crate storage;
-use storage::{KeyValueStorage, MemoryStorage, ReadHandle, WriteHandle};
+use storage::{KeyValueStorage, ContentStorage, MemoryStorage, ReadHandle, WriteHandle};
 
 
 #[test]
@@ -57,4 +57,30 @@ fn insert_via_reader()
 		assert!(r.is_ok());
 		assert_eq!(&value[..], "hello world".as_bytes());
 	}
+}
+
+
+#[test]
+fn content_storage()
+{
+	use std::io::{Cursor};
+	let mut storage = MemoryStorage::new();
+	let mut storage : &mut ContentStorage = &mut storage;
+
+	//insert via reader without size limit
+	let mut content_source = &mut Cursor::new("hello world".as_bytes());
+	let mut key : Vec<u8> = Vec::new();
+
+	let r =  storage.put(&mut ReadHandle::Reader(&mut content_source, None), &mut WriteHandle::Writer(&mut key, None));
+	assert!(r.is_ok());
+
+	{
+		let mut content : Vec<u8> = Vec::new();
+		let mut key = &mut Cursor::new(&key[..]);
+		let mut key = &mut ReadHandle::Reader(&mut key, None);
+		let r =  storage.get(&mut key, &mut WriteHandle::Writer(&mut content, None));
+		assert!(r.is_ok());
+		assert_eq!(&content[..], "hello world".as_bytes());
+	}
+
 }

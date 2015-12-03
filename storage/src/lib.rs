@@ -21,6 +21,7 @@ mod util;
 pub use core::ReadHandle;
 pub use core::WriteHandle;
 pub use core::KeyValueStorage;
+pub use core::ContentStorage;
 
 ////////////////////////////////////////////////////////////////////////
 //feature flags which backend to include

@@ -3,6 +3,7 @@
 
 
 mod iohandle; //io handle for key and data exchange
+mod error;
 mod base;	//base implementations
 mod meta;	//meta data interface
 mod seek;	//seek interface
