@@ -6,13 +6,12 @@
 
 	//use a hashmap or something similiar
 	//trie?
-	
+
 use std::collections::HashMap;
 
-use std::io::{Cursor, Result, Read, Error, ErrorKind};
+use std::io::{Cursor, Result, Error, ErrorKind};
 
 use super::core::{ReadHandle, WriteHandle, KeyValueStorage};
-use super::util;
 
 ///
 /// Memory Storage
@@ -39,35 +38,23 @@ impl KeyValueStorage for MemoryStorage
 {
 	///
 	/// retrieve a value from storage, the key is read through the key_handle
-	/// the content is written to the write handle 
+	/// the content is written to the write handle
 	///
 	fn get(&self, key_handle: &mut ReadHandle, output_handle: &mut WriteHandle) -> Result<()>
 	{
 		let key = try!(key_handle.to_vec());
-		
+
 		match self.map.get(&key)
 		{
 			Some(v) =>
 			{
 				let mut c = Cursor::new(v.as_slice());
-				
-				match output_handle {
-					&mut WriteHandle::Writer(ref mut writer, opt_size) => {
-						let mut writer = writer;
-						assert_eq!(v.len(), opt_size.unwrap_or(v.len()));
-						try!(util::copy(&mut c, &mut writer, v.len() as u64));
-					}
-					&mut WriteHandle::Slice(ref mut slice) => {
-						let mut slice = slice;
-						if v.len() == slice.len() {
-							return Err(Error::new(ErrorKind::Other, "target slice must have the right size"));
-						}
-						let bytes_written = try!(c.read(&mut slice));
-						assert_eq!(v.len(), bytes_written);
-					}
-				}
-			
-				
+				let bytes_written = try!(output_handle.write_from_read(&mut c, v.len()));
+				if bytes_written == v.len() {
+					return Ok(())
+				 } else {
+					 return Err(Error::new(ErrorKind::Other, "can't write all bytes to output_handle"));
+				 }
 			}
 			None => {
 				return Err(Error::new(ErrorKind::Other, "key not found"));
@@ -75,7 +62,7 @@ impl KeyValueStorage for MemoryStorage
 		}
 		Ok(())
 	}
-	
+
 	///
 	/// Put a value into the storage the key is read through the key handle
 	/// the value content is read by the value_handle
@@ -87,17 +74,17 @@ impl KeyValueStorage for MemoryStorage
 		self.map.insert(key, value);
 		Ok(())
 	}
-	
-	/// 
+
+	///
 	/// delete a value from repository by key
 	///
 	fn delete(&mut self, key_handle: &mut ReadHandle) -> Result<()>
 	{
-		let key = try!(key_handle.to_vec());		
+		let key = try!(key_handle.to_vec());
 		self.map.remove(&key);
-		
+
 		Ok(())
 	}
-	
+
 }
 

@@ -48,4 +48,6 @@ pub trait ContentStorage
 	/// delete content
 	///
 	fn delete(&mut self, key: &mut ReadHandle) -> Result<()>;
+	
+	//TODO ?verify function -> check hash(value) == key
 }

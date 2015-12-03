@@ -1,7 +1,6 @@
 
 #![allow(dead_code)]
 
-#![feature(path_ext)]
 #![feature(convert)]
 #![feature(vec_push_all)]
 //#![feature(io)]
@@ -15,7 +14,7 @@ extern crate crypto;
 extern crate log;
 
 //main traits
-mod core; 
+mod core;
 mod util;
 
 //public use exports:
@@ -32,6 +31,7 @@ mod storage_filesystem;
 pub use storage_filesystem::FilesystemStorage;
 
 //in memory storage
+#[cfg(feature = "storage_memory")]
 mod storage_memory;
 pub use storage_memory::MemoryStorage;
 

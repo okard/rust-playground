@@ -1,6 +1,6 @@
 
 
-//struct MetaInformation:
+//struct MetaInformation: (trait?)
 
 	//key_size
 	//value_size
@@ -11,11 +11,11 @@
 	//created timestamp
 	//flags (readonly, cas stored)
 	//complete entry size?
-	
-
-//trait MetaStorage
-	//get_meta(&self, keyhandle) -> MetaInformation 
 
 
+trait MetaStorage
+{
+	//get_meta(&self, keyhandle) -> MetaInformation
+}
 
 
